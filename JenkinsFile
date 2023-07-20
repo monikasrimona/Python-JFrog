@@ -1,0 +1,38 @@
+pipeline{
+    agent any
+    stages{
+        stage('Code Checkout'){
+            steps{
+                checkout scmGit(branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/monikasrimona/Python-JFrog']])
+            }
+        }
+        stage('Build Docker Image'){
+            steps{
+					bat 'echo "Building Docker image"'
+					bat 'docker build -t python-jfrog:latest .'
+                    
+                }
+            }
+		stage("Build & SonarQube analysis") {
+            steps {
+                script {
+                    withSonarQubeEnv('SonarQubeServer') {
+                        bat 'sonar-scanner.bat -D"sonar.projectKey=sonarqube-jenkins" -D"sonar.sources=." -D"sonar.host.url=http://localhost:9000" -D"sonar.token=squ_596690bbd72df7c7b15548052eb4db40c4887f60"'
+                    }
+                }
+            }
+        }
+        stage("Quality Gate") {
+            steps {
+                script {
+                    timeout(time: 1, unit: 'HOURS') {
+                        def qg = waitForQualityGate()
+                        if (qg.status != 'OK') {
+                            error "Pipeline aborted due to Quality Gate failure: ${qg.status}"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}		
